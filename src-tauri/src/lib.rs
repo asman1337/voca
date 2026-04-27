@@ -1,21 +1,21 @@
-//! VOCA — library root
-//! Wires together all subsystems and registers Tauri commands.
+//! VOCA — library root.
+//!
+//! Declares all subsystem modules, wires the [`Pipeline`] into Tauri's
+//! managed state, registers IPC commands, and starts the hotkey daemon.
 
 mod audio;
 mod hotkey;
 mod inject;
 mod orb;
+mod pipeline;
 mod stt;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tauri::Manager;
 
-pub use orb::OrbEngine;
+use pipeline::{Pipeline, SharedPipeline};
 
-/// Type alias for shared orb state — accessible across Tauri commands.
-pub type SharedOrb = Arc<Mutex<OrbEngine>>;
-
-/// Application entry point (called by main.rs and mobile entry).
+/// Application entry point (also used by mobile via `tauri::mobile_entry_point`).
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
@@ -23,11 +23,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // Initialize the orb engine and store in app state
-            let engine = OrbEngine::new(app.handle().clone());
-            app.manage(Arc::new(Mutex::new(engine)));
+            // ── 1. Create the central pipeline ────────────────────────────
+            let pipeline: SharedPipeline = Arc::new(Pipeline::new(app.handle().clone()));
+            app.manage(Arc::clone(&pipeline));
 
-            log::info!("VOCA started — orb engine ready");
+            // ── 2. Start global hotkey daemon ──────────────────────────────
+            hotkey::setup(Arc::clone(&pipeline));
+
+            log::info!("VOCA initialised — pipeline ready, hotkeys active");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -36,52 +39,47 @@ pub fn run() {
             cmd_stop_listening,
             cmd_toggle_mute,
             cmd_get_state,
+            cmd_dismiss,
         ])
         .run(tauri::generate_context!())
         .expect("error while running VOCA");
 }
 
-// ── Tauri commands ──────────────────────────────────────────────────────────
+// ── Tauri IPC commands ────────────────────────────────────────────────────────
 
-/// Toggle between Idle ↔ Listening (click-to-toggle mode).
-#[tauri::command(rename_all = "snake_case")]
-fn cmd_toggle_listening(
-    orb: tauri::State<SharedOrb>,
-) {
-    let mut engine = orb.lock().expect("orb lock poisoned");
-    engine.toggle_listening();
+/// Toggle: Idle → Listening (start capture) or Listening → Transcribing.
+#[tauri::command]
+fn cmd_toggle_listening(pipeline: tauri::State<SharedPipeline>) {
+    pipeline.handle_toggle();
 }
 
-/// Explicitly start listening (PTT press).
-#[tauri::command(rename_all = "snake_case")]
-fn cmd_start_listening(
-    orb: tauri::State<SharedOrb>,
-) {
-    let mut engine = orb.lock().expect("orb lock poisoned");
-    engine.transition(orb::OrbState::Listening);
+/// Explicitly start listening (PTT press or UI button).
+#[tauri::command]
+fn cmd_start_listening(pipeline: tauri::State<SharedPipeline>) {
+    pipeline.handle_start();
 }
 
-/// Explicitly stop listening (PTT release) → trigger transcription.
-#[tauri::command(rename_all = "snake_case")]
-fn cmd_stop_listening(
-    orb: tauri::State<SharedOrb>,
-) {
-    let mut engine = orb.lock().expect("orb lock poisoned");
-    engine.transition(orb::OrbState::Transcribing);
+/// Explicitly stop and begin transcription (PTT release).
+#[tauri::command]
+fn cmd_stop_listening(pipeline: tauri::State<SharedPipeline>) {
+    pipeline.handle_stop();
 }
 
-/// Toggle mute on/off.
-#[tauri::command(rename_all = "snake_case")]
-fn cmd_toggle_mute(
-    orb: tauri::State<SharedOrb>,
-) {
-    let mut engine = orb.lock().expect("orb lock poisoned");
-    engine.toggle_mute();
+/// Toggle mute on / off.
+#[tauri::command]
+fn cmd_toggle_mute(pipeline: tauri::State<SharedPipeline>) {
+    pipeline.handle_mute_toggle();
 }
 
-/// Return current orb state as a string (for UI init sync).
-#[tauri::command(rename_all = "snake_case")]
-fn cmd_get_state(orb: tauri::State<SharedOrb>) -> String {
-    let engine = orb.lock().expect("orb lock poisoned");
-    engine.state().to_string()
+/// Return current orb state string for frontend initialisation sync.
+#[tauri::command]
+fn cmd_get_state(pipeline: tauri::State<SharedPipeline>) -> String {
+    pipeline.get_state_str()
 }
+
+/// Dismiss the clipboard card (Injected → Idle).
+#[tauri::command]
+fn cmd_dismiss(pipeline: tauri::State<SharedPipeline>) {
+    pipeline.handle_dismiss();
+}
+

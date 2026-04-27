@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { Orb } from "./components/Orb";
 import { useOrbState } from "./hooks/useOrbState";
 
@@ -7,6 +8,8 @@ export default function App() {
 
   const handleDismissCard = useCallback(() => {
     setClipboardText(null);
+    // Tell the backend to transition Injected → Idle
+    invoke("cmd_dismiss").catch(() => {});
   }, [setClipboardText]);
 
   return (

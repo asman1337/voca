@@ -6,7 +6,6 @@ export type OrbState =
   | "injected"
   | "muted";
 
-// Payload sent when transcription lands with no focused input
-export interface ClipboardPayload {
-  text: string;
-}
+// Payload sent when transcription lands with no focused input.
+// The backend emits a plain string — use it directly.
+export type ClipboardPayload = string;

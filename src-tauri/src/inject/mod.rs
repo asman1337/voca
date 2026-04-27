@@ -1,87 +1,160 @@
-//! Text injection subsystem.
-//!
-//! Detects the currently focused input element and injects text into it.
-//! Falls back to clipboard if no valid input is found.
+//! Text injection — types transcribed text into the currently focused window.
 //!
 //! # Platform strategy
-//! - macOS 13+  → AXUIElement accessibility API      (t-p1-12)
-//! - Windows 10+ → UI Automation → SendInput fallback (t-p1-13)
-//! - Linux X11   → xdotool type                       (t-p2-06)
-//! - Clipboard   → arboard crate                      (t-p1-14)
+//! | Platform | Primary method             | Fallback      |
+//! |----------|---------------------------|---------------|
+//! | Windows  | `SendInput` KEYEVENTF_UNICODE | Clipboard  |
+//! | macOS    | TODO (AXUIElement)         | Clipboard     |
+//! | Linux    | TODO (xdotool)             | Clipboard     |
+//!
+//! `KEYEVENTF_UNICODE` sends each UTF-16 code unit as a synthetic keystroke.
+//! This works with virtually every Windows application (browsers, editors,
+//! IDEs, native apps) without needing to know the focused element.
+//!
+//! The clipboard fallback places the text on the system clipboard and emits
+//! an `orb-clipboard-ready` Tauri event so the frontend can show the copy card.
 
-/// Result of an injection attempt.
+/// Outcome of an injection attempt.
 #[derive(Debug)]
 pub enum InjectionResult {
-    /// Text was injected directly into the focused input.
+    /// Text was typed into the focused input via keyboard simulation.
     Injected,
-    /// No focused input found; text was placed on the clipboard.
+    /// No injectable target found; text is on the clipboard (user pastes).
     Clipboard,
-    /// Injection failed entirely.
+    /// Both injection and clipboard fallback failed.
     Failed(String),
 }
 
-/// Inject `text` into the focused application input.
+/// Inject `text` into whatever the OS reports as the focused window.
 ///
-/// Tries native injection first; falls back to clipboard on failure.
+/// Tries the platform-native method first; falls back to the system clipboard
+/// if that fails.  All paths are logged.
 pub fn inject(text: &str) -> InjectionResult {
-    #[cfg(target_os = "macos")]
-    {
-        match inject_macos(text) {
-            Ok(_)  => return InjectionResult::Injected,
-            Err(e) => log::warn!("macOS injection failed: {} — falling back to clipboard", e),
-        }
+    if text.is_empty() {
+        return InjectionResult::Injected; // nothing to do
     }
 
     #[cfg(target_os = "windows")]
     {
         match inject_windows(text) {
-            Ok(_)  => return InjectionResult::Injected,
-            Err(e) => log::warn!("Windows injection failed: {} — falling back to clipboard", e),
+            Ok(())  => return InjectionResult::Injected,
+            Err(e)  => log::warn!("Windows SendInput failed: {e} — clipboard fallback"),
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        match inject_macos(text) {
+            Ok(())  => return InjectionResult::Injected,
+            Err(e)  => log::warn!("macOS injection failed: {e} — clipboard fallback"),
         }
     }
 
     #[cfg(target_os = "linux")]
     {
         match inject_linux(text) {
-            Ok(_)  => return InjectionResult::Injected,
-            Err(e) => log::warn!("Linux injection failed: {} — falling back to clipboard", e),
+            Ok(())  => return InjectionResult::Injected,
+            Err(e)  => log::warn!("Linux injection failed: {e} — clipboard fallback"),
         }
     }
 
-    // Clipboard fallback (all platforms)
     clipboard_fallback(text)
 }
 
-fn clipboard_fallback(text: &str) -> InjectionResult {
+// ── Clipboard fallback (all platforms) ───────────────────────────────────────
+
+pub(crate) fn clipboard_fallback(text: &str) -> InjectionResult {
     match arboard::Clipboard::new().and_then(|mut cb| cb.set_text(text)) {
-        Ok(_) => {
-            log::info!("Text placed on clipboard (no focused input)");
+        Ok(()) => {
+            log::info!("inject: text placed on clipboard");
             InjectionResult::Clipboard
         }
         Err(e) => {
-            log::error!("Clipboard fallback failed: {}", e);
+            log::error!("Clipboard fallback failed: {e}");
             InjectionResult::Failed(e.to_string())
         }
     }
 }
 
-// ── macOS stub (t-p1-12) ──────────────────────────────────────────────────
+// ── Windows — SendInput with KEYEVENTF_UNICODE ────────────────────────────────
+//
+// Each Unicode code point is encoded as one or two UTF-16 code units.
+// We send a key-down then key-up INPUT event per code unit.
+// The `KEYEVENTF_UNICODE` flag bypasses the keyboard layout mapping so any
+// character is delivered correctly regardless of the user's locale.
+
+#[cfg(target_os = "windows")]
+fn inject_windows(text: &str) -> Result<(), String> {
+    use std::mem::size_of;
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
+        KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VIRTUAL_KEY,
+    };
+
+    // Encode as UTF-16: BMP chars → 1 code unit; supplementary → surrogate pair
+    let code_units: Vec<u16> = text.encode_utf16().collect();
+    if code_units.is_empty() {
+        return Ok(());
+    }
+
+    // Pre-allocate: one key-down + one key-up per code unit
+    let mut inputs: Vec<INPUT> = Vec::with_capacity(code_units.len() * 2);
+
+    for &cu in &code_units {
+        // Key down
+        inputs.push(INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk:         VIRTUAL_KEY(0),
+                    wScan:       cu,
+                    dwFlags:     KEYEVENTF_UNICODE,
+                    time:        0,
+                    dwExtraInfo: 0,
+                },
+            },
+        });
+        // Key up
+        inputs.push(INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk:         VIRTUAL_KEY(0),
+                    wScan:       cu,
+                    dwFlags:     KEYEVENTF_UNICODE | KEYEVENTF_KEYUP,
+                    time:        0,
+                    dwExtraInfo: 0,
+                },
+            },
+        });
+    }
+
+    // SAFETY: inputs is a valid, fully-initialised Vec<INPUT>.
+    let sent = unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) };
+
+    if sent as usize == inputs.len() {
+        Ok(())
+    } else {
+        Err(format!(
+            "SendInput: {}/{} events delivered — OS blocked some inputs",
+            sent, inputs.len()
+        ))
+    }
+}
+
+// ── macOS stub (t-p1-12) ──────────────────────────────────────────────────────
+
 #[cfg(target_os = "macos")]
 fn inject_macos(_text: &str) -> Result<(), String> {
-    // TODO (t-p1-12): implement AXUIElement injection
-    Err("AXUIElement injection not yet implemented".into())
+    // TODO (t-p1-12): use AXUIElementSetAttributeValue + CGEventPost
+    Err("macOS text injection not yet implemented".into())
 }
 
-// ── Windows stub (t-p1-13) ───────────────────────────────────────────────
-#[cfg(target_os = "windows")]
-fn inject_windows(_text: &str) -> Result<(), String> {
-    // TODO (t-p1-13): implement UI Automation / SendInput injection
-    Err("Windows injection not yet implemented".into())
-}
+// ── Linux stub (t-p2-06) ─────────────────────────────────────────────────────
 
-// ── Linux stub (t-p2-06) ─────────────────────────────────────────────────
 #[cfg(target_os = "linux")]
 fn inject_linux(_text: &str) -> Result<(), String> {
-    // TODO (t-p2-06): shell out to xdotool type
-    Err("xdotool injection not yet implemented".into())
+    // TODO (t-p2-06): shell out to `xdotool type --clearmodifiers`
+    Err("Linux text injection not yet implemented".into())
 }
+
