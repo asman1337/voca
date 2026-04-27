@@ -10,6 +10,10 @@ jobs:
     permissions:
       contents: write
 
+    env:
+      # Expose at job level so step `if:` conditions can inspect them.
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -67,10 +71,12 @@ jobs:
             libasound2-dev
 
       # ── macOS signing & notarisation ──────────────────────────────────────
+      # Skip this step if APPLE_CERTIFICATE secret is not configured — the
+      # build will still produce an unsigned .dmg that users can run after
+      # allowing it in System Settings > Privacy & Security.
       - name: Import Apple certificate
-        if: matrix.platform == 'macos-latest'
+        if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != ''
         env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
