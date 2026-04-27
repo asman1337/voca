@@ -48,6 +48,12 @@ whisper-rs = "0.16"
 # ── Global hotkeys ───────────────────────────────────────────────────────────
 global-hotkey = "0.7"
 
+# ── Model downloader ─────────────────────────────────────────────────────────
+reqwest      = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+sha2         = "0.10"
+hex          = "0.4"
+futures-util = "0.3"
+
 # ── Platform-specific (injection) ──────────────────────────────────────────
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.62", features = [

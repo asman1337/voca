@@ -6,6 +6,7 @@
 mod audio;
 mod autolaunch;
 mod config;
+mod downloader;
 mod hotkey;
 mod inject;
 mod orb;
@@ -158,6 +159,10 @@ pub fn run() {
             cmd_save_config,
             cmd_set_auto_launch,
             cmd_is_auto_launch_enabled,
+            cmd_list_models,
+            cmd_download_model,
+            cmd_cancel_download,
+            cmd_delete_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running VOCA");
@@ -243,5 +248,42 @@ fn cmd_set_auto_launch(
 #[tauri::command]
 fn cmd_is_auto_launch_enabled() -> bool {
     autolaunch::is_enabled()
+}
+
+// ── Model downloader IPC ─────────────────────────────────────────────────────
+
+/// Return the full model catalogue with per-model download status.
+#[tauri::command]
+fn cmd_list_models() -> Vec<downloader::ModelEntry> {
+    downloader::list_models()
+}
+
+/// Start downloading a model in the background.
+/// Returns immediately; progress arrives as `model_download_progress`,
+/// `model_download_done`, or `model_download_error` events.
+#[tauri::command]
+fn cmd_download_model(app: tauri::AppHandle, model_id: String) {
+    use tauri::Emitter;
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = downloader::download_model(app.clone(), model_id.clone()).await {
+            log::error!("Model download failed for '{model_id}': {e}");
+            let _ = app.emit(
+                "model_download_error",
+                downloader::ErrorPayload { model_id, error: e },
+            );
+        }
+    });
+}
+
+/// Cancel the in-flight model download at the next chunk boundary.
+#[tauri::command]
+fn cmd_cancel_download() {
+    downloader::cancel_download();
+}
+
+/// Delete a downloaded model file (and its SHA-256 sidecar) from disk.
+#[tauri::command]
+fn cmd_delete_model(model_id: String) -> Result<(), String> {
+    downloader::delete_model(&model_id)
 }
 
