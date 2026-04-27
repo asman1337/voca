@@ -22,6 +22,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 
 use crate::audio::AudioCapture;
+use crate::config::AppConfig;
 use crate::inject::{inject, InjectionResult};
 use crate::orb::{OrbEngine, OrbState};
 use crate::stt::{SttConfig, WhisperEngine};
@@ -55,13 +56,18 @@ unsafe impl Sync for Pipeline {}
 
 impl Pipeline {
     /// Create a new pipeline bound to the given Tauri app handle.
-    pub fn new(app: AppHandle) -> Self {
+    pub fn new(app: AppHandle, config: AppConfig) -> Self {
+        let stt_cfg = SttConfig {
+            model_path:  config.model_path.clone(),
+            language:    config.language.clone(),
+            postprocess: true,
+        };
         let orb = Arc::new(Mutex::new(OrbEngine::new(app.clone())));
         Self {
             orb,
             capture: Mutex::new(None),
             whisper: Mutex::new(None),
-            stt_cfg: SttConfig::default(),
+            stt_cfg,
             app,
         }
     }
