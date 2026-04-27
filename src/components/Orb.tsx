@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { LogicalSize } from "@tauri-apps/api/dpi";
 import type { OrbState } from "../types";
 import "./Orb.css";
 
@@ -251,9 +250,10 @@ interface OrbProps {
   state: OrbState;
   clipboardText: string | null;
   onDismissCard: () => void;
+  onOpenSettings: () => void;
 }
 
-export function Orb({ state, clipboardText, onDismissCard }: OrbProps) {
+export function Orb({ state, clipboardText, onDismissCard, onOpenSettings }: OrbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<OrbState>(state);
   stateRef.current = state;
@@ -266,15 +266,7 @@ export function Orb({ state, clipboardText, onDismissCard }: OrbProps) {
     return () => renderer.destroy();
   }, []);
 
-  // ── Window resize: expand when the clipboard card is visible ────────────
-  useEffect(() => {
-    const win = getCurrentWebviewWindow();
-    if (state === "injected" && clipboardText) {
-      win.setSize(new LogicalSize(286, 212)).catch(() => {});
-    } else {
-      win.setSize(new LogicalSize(80, 80)).catch(() => {});
-    }
-  }, [state, clipboardText]);
+  // Window resize is now managed in App.tsx.
   // ── Dragging ────────────────────────────────────────────────────────────
   // We wait for actual mouse movement before calling startDragging() so
   // that a stationary click still fires onClick on the orb circle.
@@ -309,6 +301,12 @@ export function Orb({ state, clipboardText, onDismissCard }: OrbProps) {
     },
     []
   );
+
+  // ── Right-click → open settings ─────────────────────────────────────────
+  const handleOrbContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    onOpenSettings();
+  }, [onOpenSettings]);
 
   // ── Click to toggle ──────────────────────────────────────────────────────
   const handleOrbClick = useCallback(async () => {
@@ -346,6 +344,7 @@ export function Orb({ state, clipboardText, onDismissCard }: OrbProps) {
         ref={canvasRef}
         className="orb-canvas"
         onClick={handleOrbClick}
+        onContextMenu={handleOrbContextMenu}
         title={ORB_TOOLTIPS[state]}
       />
 
