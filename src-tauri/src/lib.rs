@@ -4,6 +4,7 @@
 //! managed state, registers IPC commands, and starts the hotkey daemon.
 
 mod audio;
+mod autolaunch;
 mod config;
 mod hotkey;
 mod inject;
@@ -34,7 +35,7 @@ pub fn run() {
             app.manage(Arc::clone(&pipeline));
 
             // ── 3. Store config in Tauri state for IPC commands ───────────
-            app.manage(Mutex::new(config));
+            app.manage(Mutex::new(config.clone()));
 
             // ── 4. Start global hotkey daemon ──────────────────────────────
             hotkey::setup(Arc::clone(&pipeline));
@@ -99,7 +100,22 @@ pub fn run() {
                 app.manage(tray);
             }
 
-            // ── 6. Make the orb non-activating on Windows ─────────────────
+            // ── 6. Apply auto-launch preference from config ─────────────
+            {
+                let exe = std::env::current_exe()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned();
+                let want = config.auto_launch;
+                let have = autolaunch::is_enabled();
+                if want != have {
+                    if let Err(e) = autolaunch::set(want, &exe) {
+                        log::warn!("Auto-launch sync failed: {e}");
+                    }
+                }
+            }
+
+            // ── 7. Make the orb non-activating on Windows ─────────────────
             #[cfg(target_os = "windows")]
             if let Some(win) = app.get_webview_window("orb") {
                 use windows::Win32::UI::WindowsAndMessaging::{
@@ -126,6 +142,8 @@ pub fn run() {
             cmd_dismiss,
             cmd_get_config,
             cmd_save_config,
+            cmd_set_auto_launch,
+            cmd_is_auto_launch_enabled,
         ])
         .run(tauri::generate_context!())
         .expect("error while running VOCA");
@@ -185,5 +203,31 @@ fn cmd_save_config(
     new_cfg.save()?;
     *cfg.lock().unwrap() = new_cfg;
     Ok(())
+}
+
+/// Enable or disable auto-launch for the current user.
+/// Also persists the preference into config so it survives reinstalls.
+#[tauri::command]
+fn cmd_set_auto_launch(
+    enable: bool,
+    cfg: tauri::State<Mutex<AppConfig>>,
+) -> Result<(), String> {
+    let exe = std::env::current_exe()
+        .map_err(|e| e.to_string())?
+        .to_string_lossy()
+        .into_owned();
+
+    autolaunch::set(enable, &exe)?;
+
+    // Persist preference to config file.
+    let mut guard = cfg.lock().unwrap();
+    guard.auto_launch = enable;
+    guard.save()
+}
+
+/// Query whether auto-launch is currently active (reads the OS, not just config).
+#[tauri::command]
+fn cmd_is_auto_launch_enabled() -> bool {
+    autolaunch::is_enabled()
 }
 

@@ -29,6 +29,11 @@ pub struct AppConfig {
     /// How to deliver transcribed text: `"inject"` (SendInput/AXUIElement)
     /// or `"clipboard"` (always use clipboard fallback).
     pub input_mode: String,
+
+    /// Whether to launch VOCA automatically on OS login.
+    /// Written to the Windows registry (HKCU Run) or macOS LaunchAgent plist.
+    #[serde(default)]
+    pub auto_launch: bool,
 }
 
 impl Default for AppConfig {
@@ -39,6 +44,7 @@ impl Default for AppConfig {
             hotkey:        "ctrl+shift+v".into(),
             vad_threshold: 0.5,
             input_mode:    "inject".into(),
+            auto_launch:   false,
         }
     }
 }
