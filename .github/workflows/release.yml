@@ -71,9 +71,8 @@ jobs:
             libasound2-dev
 
       # ── macOS signing & notarisation ──────────────────────────────────────
-      # Skip this step if APPLE_CERTIFICATE secret is not configured — the
-      # build will still produce an unsigned .dmg that users can run after
-      # allowing it in System Settings > Privacy & Security.
+      # Skip entirely if APPLE_CERTIFICATE secret is not configured — tauri
+      # will produce an unsigned .dmg (users right-click → Open first time).
       - name: Import Apple certificate
         if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != ''
         env:
@@ -90,16 +89,24 @@ jobs:
             -s -k "$KEYCHAIN_PASSWORD" build.keychain
           rm certificate.p12
 
+      # Only inject signing env vars when a cert is actually present.
+      # If these vars are absent, tauri skips codesign entirely.
+      - name: Set macOS signing env
+        if: matrix.platform == 'macos-latest' && env.APPLE_CERTIFICATE != ''
+        run: |
+          echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> $GITHUB_ENV
+          echo "APPLE_ID=${{ secrets.APPLE_ID }}"                             >> $GITHUB_ENV
+          echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}"                 >> $GITHUB_ENV
+          echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}"                   >> $GITHUB_ENV
+
       # ── Build & publish ───────────────────────────────────────────────────
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS codesign / notarise
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # macOS signing vars are set via $GITHUB_ENV in "Set macOS signing env"
+          # only when APPLE_CERTIFICATE secret is configured. When absent, tauri
+          # skips codesign and produces an unsigned .dmg.
           # Windows codesign (optional — leave unset for unsigned OSS builds)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
