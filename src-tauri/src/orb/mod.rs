@@ -79,6 +79,8 @@ impl OrbEngine {
     }
 
     /// Idle ↔ Listening toggle (click-to-toggle mode).
+    /// Called by the Pipeline — kept here for direct state-machine testing.
+    #[allow(dead_code)]
     pub fn toggle_listening(&mut self) {
         match &self.state {
             OrbState::Idle      => { self.transition(OrbState::Listening); }

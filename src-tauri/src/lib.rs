@@ -30,6 +30,25 @@ pub fn run() {
             // ── 2. Start global hotkey daemon ──────────────────────────────
             hotkey::setup(Arc::clone(&pipeline));
 
+            // ── 3. Make the orb non-activating on Windows ─────────────────
+            // WS_EX_NOACTIVATE prevents the orb window from stealing focus
+            // when clicked, so the user's active text input stays focused.
+            #[cfg(target_os = "windows")]
+            if let Some(win) = app.get_webview_window("orb") {
+                use windows::Win32::UI::WindowsAndMessaging::{
+                    GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE,
+                };
+                if let Ok(hwnd_tauri) = win.hwnd() {
+                    // Tauri's internal `windows` dep is 0.61; ours is 0.62.
+                    // Both HWND types wrap the same *mut c_void — re-wrap the ptr.
+                    let hwnd = windows::Win32::Foundation::HWND(hwnd_tauri.0);
+                    unsafe {
+                        let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+                        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex | WS_EX_NOACTIVATE.0 as isize);
+                    }
+                }
+            }
+
             log::info!("VOCA initialised — pipeline ready, hotkeys active");
             Ok(())
         })

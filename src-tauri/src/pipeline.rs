@@ -69,13 +69,20 @@ impl Pipeline {
     // ── Public command API (called from Tauri commands and hotkey thread) ──────
 
     /// Toggle: Idle→Listening (start capture) or Listening→Transcribing (run STT).
+    /// Clicking while Injected dismisses the result and starts a new recording.
     pub fn handle_toggle(&self) {
         let state = self.orb.lock().unwrap().state().clone();
         match state {
-            OrbState::Idle      => self.begin_recording(),
-            OrbState::Listening => self.end_and_transcribe(),
-            OrbState::Muted     => log::debug!("Toggle ignored — orb is muted"),
-            _                   => log::debug!("Toggle ignored in state {state:?}"),
+            OrbState::Idle        => self.begin_recording(),
+            OrbState::Listening   => self.end_and_transcribe(),
+            // Injected: one click resets + immediately starts a fresh recording
+            OrbState::Injected    => {
+                self.orb.lock().unwrap().transition(OrbState::Idle);
+                self.begin_recording();
+            }
+            // Transcribing: ignore — let it finish on its own
+            OrbState::Transcribing => log::debug!("Toggle ignored — still transcribing"),
+            OrbState::Muted        => log::debug!("Toggle ignored — orb is muted"),
         }
     }
 

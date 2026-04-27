@@ -11,6 +11,9 @@
 //! 4. `silence_hold_frames` consecutive quiet frames confirm speech end.
 //! 5. A pre-roll window ensures the first syllable is never clipped.
 //!
+//! Not yet wired to the pipeline — reserved for v0.5 VAD-driven mode.
+#![allow(dead_code)]
+//!
 //! When speech ends, a [`SpeechSegment`] is returned — ready for the STT
 //! engine.  At end-of-stream call [`EnergyVad::flush`] to collect any
 //! segment that was still in progress.

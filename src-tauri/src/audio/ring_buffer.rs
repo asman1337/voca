@@ -3,6 +3,9 @@
 //! Stores 16-bit PCM samples in a circular buffer. Pre-buffers
 //! up to `pre_buffer_ms` ms before speech onset to avoid clipping
 //! the start of utterances.
+//!
+//! Not yet wired to the pipeline — reserved for v0.5 VAD-driven mode.
+#![allow(dead_code)]
 
 /// A simple ring buffer for `f32` audio samples.
 pub struct RingBuffer {

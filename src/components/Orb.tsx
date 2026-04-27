@@ -12,18 +12,36 @@ interface OrbProps {
 
 export function Orb({ state, clipboardText, onDismissCard }: OrbProps) {
   // ── Dragging ────────────────────────────────────────────────────────────
+  // We wait for actual mouse movement before calling startDragging() so
+  // that a stationary click still fires onClick on the orb circle.
   const handleMouseDown = useCallback(
-    async (e: React.MouseEvent) => {
-      // Only drag on left-button press — don't drag when clicking buttons
+    (e: React.MouseEvent) => {
       if (e.button !== 0) return;
       const target = e.target as HTMLElement;
       if (target.closest(".orb-card")) return;
-      e.preventDefault();
-      try {
-        await getCurrentWebviewWindow().startDragging();
-      } catch {
-        // Ignore — drag not supported in dev mode without native window
+      // Don't call preventDefault here — that would swallow the click event.
+      const startX = e.clientX;
+      const startY = e.clientY;
+
+      const cleanup = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+      };
+
+      // Only initiate a native drag after the mouse moves ≥5 px.
+      function onMove(me: MouseEvent) {
+        if (Math.abs(me.clientX - startX) + Math.abs(me.clientY - startY) < 5)
+          return;
+        cleanup();
+        getCurrentWebviewWindow().startDragging().catch(() => {});
       }
+
+      function onUp() {
+        cleanup();
+      }
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
     },
     []
   );

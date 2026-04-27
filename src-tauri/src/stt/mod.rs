@@ -54,17 +54,62 @@ unsafe impl Send for WhisperEngine {}
 unsafe impl Sync for WhisperEngine {}
 
 impl WhisperEngine {
+    /// Resolve a (possibly relative) model path against several candidate
+    /// directories so the app works whether launched via `tauri dev`, `cargo
+    /// run`, or as an installed binary.
+    ///
+    /// Search order:
+    /// 1. The path as-is (absolute paths or CWD-relative work immediately).
+    /// 2. Next to the running executable.
+    /// 3. `../models/` relative to the executable (dev layout: exe lives in
+    ///    `src-tauri/target/debug/`, models live in `src-tauri/../models/`
+    ///    i.e. the workspace root `models/`).
+    /// 4. `../../models/` relative to the executable (another common layout).
+    fn resolve_model_path(raw: &str) -> Option<std::path::PathBuf> {
+        let raw_path = std::path::Path::new(raw);
+        if raw_path.is_absolute() {
+            return if raw_path.exists() { Some(raw_path.to_owned()) } else { None };
+        }
+        // 1. CWD-relative
+        if raw_path.exists() {
+            return Some(raw_path.to_owned());
+        }
+        // Derive candidates from the exe location
+        if let Ok(exe) = std::env::current_exe() {
+            let exe_dir = exe.parent().unwrap_or(std::path::Path::new("."));
+            // 2. Next to exe: <exe_dir>/models/ggml-base.bin
+            let c2 = exe_dir.join(raw);
+            if c2.exists() { return Some(c2); }
+            // 3. One level up: <exe_dir>/../models/ggml-base.bin
+            let c3 = exe_dir.join("..").join(raw);
+            if c3.exists() { return Some(c3); }
+            // 4. Two levels up: <exe_dir>/../../models/ggml-base.bin
+            let c4 = exe_dir.join("../..").join(raw);
+            if c4.exists() { return Some(c4); }
+            // 5. Three levels up (src-tauri/target/debug → workspace root)
+            let c5 = exe_dir.join("../../..").join(raw);
+            if c5.exists() { return Some(c5); }
+        }
+        None
+    }
+
     /// Load a GGML model from disk.
     ///
     /// # Errors
     /// Returns a descriptive string if the model file is missing or corrupt.
-    pub fn load(config: SttConfig) -> Result<Self, String> {
-        if !std::path::Path::new(&config.model_path).exists() {
-            return Err(format!(
-                "Whisper model not found at '{}'. \
-                 Run `scripts/download_model.ps1` (or `.sh`) to download one.",
-                config.model_path
-            ));
+    pub fn load(mut config: SttConfig) -> Result<Self, String> {
+        match Self::resolve_model_path(&config.model_path) {
+            Some(p) => {
+                config.model_path = p.to_string_lossy().into_owned();
+            }
+            None => {
+                return Err(format!(
+                    "Whisper model not found: '{}' (searched CWD, exe dir, and parent dirs). \
+                     Run `scripts/download_model.ps1` to download the model into the project \
+                     `models/` folder.",
+                    config.model_path
+                ));
+            }
         }
 
         log::info!("WhisperEngine: loading '{}'…", config.model_path);
