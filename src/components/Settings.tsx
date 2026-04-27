@@ -33,15 +33,17 @@ const DEFAULT_CONFIG: AppConfig = {
   vad_threshold: 0.5,
   input_mode:    "inject",
   auto_launch:   false,
+  postprocess:   true,
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
   onClose: () => void;
+  onOpenHistory?: () => void;
 }
 
-export function Settings({ onClose }: Props) {
+export function Settings({ onClose, onOpenHistory }: Props) {
   const [config,   setConfig]   = useState<AppConfig>(DEFAULT_CONFIG);
   const [original, setOriginal] = useState<AppConfig>(DEFAULT_CONFIG);
   const [models,   setModels]   = useState<ModelEntry[]>([]);
@@ -363,6 +365,22 @@ export function Settings({ onClose }: Props) {
           </button>
         </section>
 
+        {/* ── POSTPROCESS ─────────────────────────────────────────────── */}
+        <section className="s-section s-section--row">
+          <div className="s-section-label">
+            <span className="s-comment">#</span> clean up transcript
+            <span className="s-section-hint">strip artefacts, capitalise</span>
+          </div>
+          <button
+            className={`s-toggle ${config.postprocess ? "s-toggle--on" : ""}`}
+            onClick={() => patch({ postprocess: !config.postprocess })}
+            role="switch"
+            aria-checked={config.postprocess}
+          >
+            <span className="s-toggle-knob" />
+          </button>
+        </section>
+
       </div>{/* end s-body */}
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
@@ -388,6 +406,11 @@ export function Settings({ onClose }: Props) {
           >
             reset
           </button>
+          {onOpenHistory && (
+            <button className="s-btn-ghost" onClick={onOpenHistory}>
+              history
+            </button>
+          )}
           <button className="s-btn-ghost s-btn-ghost--close" onClick={onClose}>
             close
           </button>

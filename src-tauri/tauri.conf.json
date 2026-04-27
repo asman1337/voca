@@ -42,6 +42,30 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": null,
+      "entitlements": null
+    },
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "certificateThumbprint": null,
+      "timestampUrl": "http://timestamp.digicert.com",
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installMode": "currentUser",
+        "languages": ["English"]
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    },
+    "publisher": "B3M Labs",
+    "copyright": "© 2026 Asman Mirza. MIT License.",
+    "shortDescription": "Local-first floating dictation orb",
+    "longDescription": "VOCA is a local-first, always-on-top floating dictation orb. Press a hotkey, speak, and your words appear in whatever window you were using — no cloud, no subscription."
   }
 }

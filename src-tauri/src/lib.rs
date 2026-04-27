@@ -7,6 +7,7 @@ mod audio;
 mod autolaunch;
 mod config;
 mod downloader;
+mod history;
 mod hotkey;
 mod inject;
 mod orb;
@@ -17,7 +18,10 @@ use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
 use config::AppConfig;
+use history::HistoryDb;
 use pipeline::{Pipeline, SharedPipeline};
+
+pub type SharedHistory = Arc<HistoryDb>;
 
 /// Application entry point (also used by mobile via `tauri::mobile_entry_point`).
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -37,6 +41,12 @@ pub fn run() {
 
             // ── 3. Store config in Tauri state for IPC commands ───────────
             app.manage(Mutex::new(config.clone()));
+
+            // ── 3b. Open transcript history DB ────────────────────────────
+            match HistoryDb::open() {
+                Ok(db) => { app.manage(Arc::new(db) as SharedHistory); }
+                Err(e) => log::error!("HistoryDb open failed: {e}"),
+            }
 
             // ── 4. Start global hotkey daemon ──────────────────────────────
             hotkey::setup(Arc::clone(&pipeline));
@@ -164,6 +174,10 @@ pub fn run() {
             cmd_cancel_download,
             cmd_delete_model,
             cmd_get_stt_backend,
+            cmd_get_history,
+            cmd_search_history,
+            cmd_delete_history_entry,
+            cmd_clear_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running VOCA");
@@ -293,5 +307,39 @@ fn cmd_delete_model(model_id: String) -> Result<(), String> {
 #[tauri::command]
 fn cmd_get_stt_backend() -> &'static str {
     stt::active_backend()
+}
+
+// ── Transcript history IPC ───────────────────────────────────────────────────
+
+/// Return the most recent history entries (up to 200).
+#[tauri::command]
+fn cmd_get_history(
+    db: tauri::State<SharedHistory>,
+) -> Result<Vec<history::HistoryEntry>, String> {
+    db.list(None, 200)
+}
+
+/// Full-text substring search over history (up to 200 matches).
+#[tauri::command]
+fn cmd_search_history(
+    query: String,
+    db: tauri::State<SharedHistory>,
+) -> Result<Vec<history::HistoryEntry>, String> {
+    db.list(Some(&query), 200)
+}
+
+/// Delete a single history entry by its numeric ID.
+#[tauri::command]
+fn cmd_delete_history_entry(
+    id: i64,
+    db: tauri::State<SharedHistory>,
+) -> Result<(), String> {
+    db.delete(id)
+}
+
+/// Wipe the entire history table.
+#[tauri::command]
+fn cmd_clear_history(db: tauri::State<SharedHistory>) -> Result<(), String> {
+    db.clear()
 }
 

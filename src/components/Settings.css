@@ -141,6 +141,12 @@
   font-size: 11px;
 }
 
+.s-section-hint {
+  color: rgba(196, 196, 220, 0.2);
+  font-size: 9px;
+  margin-left: 4px;
+}
+
 .s-muted {
   color: rgba(196, 196, 220, 0.2);
   font-size: 10px;

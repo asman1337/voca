@@ -23,6 +23,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::audio::AudioCapture;
 use crate::config::AppConfig;
+use crate::history::{HistoryDb, NewEntry};
 use crate::inject::{inject, InjectionResult};
 use crate::orb::{OrbEngine, OrbState};
 use crate::stt::{SttConfig, WhisperEngine};
@@ -45,6 +46,9 @@ pub struct Pipeline {
     /// STT config (model path, language, post-process flag).
     stt_cfg:  SttConfig,
 
+    /// Transcript history database (optional — None if DB failed to open).
+    history:  Option<Arc<HistoryDb>>,
+
     /// Tauri AppHandle for emitting events to the frontend.
     pub app:  AppHandle,
 }
@@ -60,14 +64,19 @@ impl Pipeline {
         let stt_cfg = SttConfig {
             model_path:  config.model_path.clone(),
             language:    config.language.clone(),
-            postprocess: true,
+            postprocess: config.postprocess,
         };
         let orb = Arc::new(Mutex::new(OrbEngine::new(app.clone())));
+        let history = match HistoryDb::open() {
+            Ok(db)  => Some(Arc::new(db)),
+            Err(e)  => { log::warn!("Pipeline: HistoryDb unavailable: {e}"); None }
+        };
         Self {
             orb,
             capture: Mutex::new(None),
             whisper: Mutex::new(None),
             stt_cfg,
+            history,
             app,
         }
     }
@@ -164,6 +173,8 @@ impl Pipeline {
         let whisper = self.get_or_init_whisper();
         let app     = self.app.clone();
         let orb     = Arc::clone(&self.orb);
+        let history = self.history.clone();
+        let lang    = self.stt_cfg.language.clone();
 
         // Offload to the async runtime (tokio, wired by Tauri)
         tauri::async_runtime::spawn(async move {
@@ -202,6 +213,16 @@ impl Pipeline {
                 }
 
                 Ok(text) => {
+                    // Persist to transcript history
+                    if let Some(db) = &history {
+                        let _ = db.insert(NewEntry {
+                            text:       &text,
+                            model_id:   "",
+                            language:   &lang,
+                            duration_s: 0.0,
+                        });
+                    }
+
                     match inject(&text) {
                         InjectionResult::Injected => {
                             orb.lock().unwrap().transition(OrbState::Injected);

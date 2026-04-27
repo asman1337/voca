@@ -18,6 +18,7 @@ export interface AppConfig {
   vad_threshold: number;
   input_mode:    string;
   auto_launch:   boolean;
+  postprocess:   boolean;
 }
 
 // ── Model catalogue entry (mirrors downloader::ModelEntry) ───────────────────
@@ -37,4 +38,14 @@ export interface DownloadProgress {
   bytes_done:  number;
   bytes_total: number;
   percent:     number;
+}
+
+// ── History entry (mirrors history::HistoryEntry) ─────────────────────────────
+export interface HistoryEntry {
+  id:         number;
+  text:       string;
+  model_id:   string;
+  language:   string;
+  duration_s: number;
+  created_at: number;  // Unix timestamp (seconds)
 }

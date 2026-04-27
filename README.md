@@ -1,5 +1,9 @@
 # VOCA — Voice to Cursor, Always
 
+[![CI](https://github.com/asman1337/voca/actions/workflows/ci.yml/badge.svg)](https://github.com/asman1337/voca/actions/workflows/ci.yml)
+[![Release](https://github.com/asman1337/voca/actions/workflows/release.yml/badge.svg)](https://github.com/asman1337/voca/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A local-first, always-on-top floating dictation orb for your desktop. Press a hotkey, speak, and your words appear instantly in whatever window you were using — no cloud, no subscription, no microphone data leaving your machine.
 
 Built with [Tauri v2](https://tauri.app), [React 18](https://react.dev), and [whisper.cpp](https://github.com/ggerganov/whisper.cpp) via [`whisper-rs`](https://github.com/tazz4843/whisper-rs).

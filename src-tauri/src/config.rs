@@ -34,7 +34,15 @@ pub struct AppConfig {
     /// Written to the Windows registry (HKCU Run) or macOS LaunchAgent plist.
     #[serde(default)]
     pub auto_launch: bool,
+
+    /// Whether to apply post-processing (artifact removal, capitalisation) to
+    /// raw Whisper output.  Defaults to `true`.  Can be disabled for
+    /// verbatim/coding-style transcription.
+    #[serde(default = "default_true")]
+    pub postprocess: bool,
 }
+
+fn default_true() -> bool { true }
 
 impl Default for AppConfig {
     fn default() -> Self {
@@ -45,6 +53,7 @@ impl Default for AppConfig {
             vad_threshold: 0.5,
             input_mode:    "inject".into(),
             auto_launch:   false,
+            postprocess:   true,
         }
     }
 }
