@@ -163,6 +163,7 @@ pub fn run() {
             cmd_download_model,
             cmd_cancel_download,
             cmd_delete_model,
+            cmd_get_stt_backend,
         ])
         .run(tauri::generate_context!())
         .expect("error while running VOCA");
@@ -285,5 +286,12 @@ fn cmd_cancel_download() {
 #[tauri::command]
 fn cmd_delete_model(model_id: String) -> Result<(), String> {
     downloader::delete_model(&model_id)
+}
+
+/// Return the active STT inference backend for this build:
+/// `"Metal"`, `"CUDA"`, or `"CPU"`.
+#[tauri::command]
+fn cmd_get_stt_backend() -> &'static str {
+    stt::active_backend()
 }
 

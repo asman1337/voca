@@ -6,6 +6,13 @@ description = "VOCA — Voice to Cursor, Always. A local-first floating dictatio
 authors = ["Asman Mirza", "B3M Labs"]
 license = "MIT"
 
+# ── Features ─────────────────────────────────────────────────────────────────
+# `cuda` — compile whisper.cpp with CUDA support (requires CUDA toolkit).
+# Enable with: cargo build --features cuda
+[features]
+default = []
+cuda = ["whisper-rs/cuda"]
+
 # Required: produces a cdylib (Tauri loads this) and a rlib for tests
 [lib]
 name       = "voca_lib"
@@ -68,6 +75,10 @@ winreg = "0.52"
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
 core-graphics   = "0.25"
+# Metal GPU: add the metal feature to whisper-rs on all macOS builds.
+# build.rs emits voca_metal_available only on aarch64, so Intel Macs get
+# the Metal feature compiled in but use_gpu stays false at runtime.
+whisper-rs = { version = "0.16", features = ["metal"] }
 
 [profile.release]
 panic   = "abort"   # Reduce binary size

@@ -7,12 +7,36 @@
 //! ```
 //!
 //! # Model
-//! Download a GGML model with `scripts/download_model.ps1` before running.
-//! The default path is `models/ggml-base.bin`.
+//! Use `cmd_download_model` IPC to download a GGML model before running.
+//! The default path is resolved via `downloader::models_dir()`.
+//!
+//! # GPU acceleration
+//! - **Metal**:  Built automatically on macOS targets (`whisper-rs/metal` feature).
+//!               `use_gpu = true` is set only when running on Apple Silicon (aarch64).
+//! - **CUDA**:   Built when `--features cuda` is passed to cargo.
+//!               `build.rs` emits `voca_cuda_available` when the toolkit is detected.
 
 pub mod postprocess;
 
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+
+// ── Backend reporting ─────────────────────────────────────────────────────────
+
+/// Returns a string identifying the active inference backend for this build.
+/// Used by `cmd_get_stt_backend` and displayed in the settings UI.
+pub fn active_backend() -> &'static str {
+    // Metal (Apple Silicon macOS) — highest priority.
+    #[cfg(voca_metal_available)]
+    return "Metal";
+
+    // CUDA (Windows / Linux with --features cuda).
+    #[cfg(feature = "cuda")]
+    return "CUDA";
+
+    // Fallback: plain CPU.
+    #[cfg(not(any(voca_metal_available, feature = "cuda")))]
+    return "CPU";
+}
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -113,9 +137,24 @@ impl WhisperEngine {
         }
 
         log::info!("WhisperEngine: loading '{}'…", config.model_path);
+
+        // GPU acceleration:
+        //   Metal  — Apple Silicon macOS  (build.rs emits voca_metal_available)
+        //   CUDA   — Windows / Linux      (cargo feature `cuda`)
+        //   CPU    — everything else
+        let use_gpu: bool = cfg!(voca_metal_available) || cfg!(feature = "cuda");
+        let backend = active_backend();
+        if use_gpu {
+            log::info!("WhisperEngine: GPU acceleration enabled — backend = {backend}");
+        } else {
+            log::info!("WhisperEngine: using CPU — backend = {backend}");
+        }
+
+        let mut ctx_params = WhisperContextParameters::default();
+        ctx_params.use_gpu(use_gpu);
         let ctx = WhisperContext::new_with_params(
             &config.model_path,
-            WhisperContextParameters::default(),
+            ctx_params,
         )
         .map_err(|e| format!("Failed to load whisper model: {e}"))?;
 
