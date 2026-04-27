@@ -1,5 +1,7 @@
 /* ─── VOCA global styles ─────────────────────────────────────────────────── */
 
+@import url('https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@300;400;500&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -18,6 +20,6 @@ body,
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Azeret Mono', 'JetBrains Mono', 'Courier New', monospace;
   -webkit-font-smoothing: antialiased;
 }

@@ -1,229 +1,451 @@
-/* ─── Orb component styles ───────────────────────────────────────────────── */
+/* ─── VOCA Orb — Living Neural Plasma ───────────────────────────────────── */
 
+/* ── Layout root ──────────────────────────────────────────────────────────── */
 .orb-root {
   position: fixed;
   inset: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  /* expanded card makes root taller — we let it grow */
   flex-direction: column;
-  gap: 10px;
-  padding: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  overflow: visible;
 }
 
-/* ── Base orb circle ──────────────────────────────────────────────────────── */
+/* ── Canvas orb ─────────────────────────────────────────────────────────────── */
+.orb-canvas {
+  display: block;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.orb-canvas:hover  { transform: scale(1.10); }
+.orb-canvas:active { transform: scale(0.93); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BASE ORB SPHERE
+   ══════════════════════════════════════════════════════════════════════════ */
 .orb {
-  width: 60px;
-  height: 60px;
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   position: relative;
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
   flex-shrink: 0;
+  isolation: isolate;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.orb:hover {
-  transform: scale(1.06);
-}
+.orb:hover  { transform: scale(1.10); }
+.orb:active { transform: scale(0.93); }
 
-.orb:active {
-  transform: scale(0.96);
-}
-
-/* ── Idle ─────────────────────────────────────────────────────────────────── */
-.orb--idle {
-  background: #18181e;
-  border: 1.5px solid #2e2e3a;
-}
-
-.orb--idle .orb-dot {
-  width: 14px;
-  height: 14px;
+/* ── Rotating plasma rim (behind the orb body) ──────────────────────────── */
+.orb::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
   border-radius: 50%;
-  background: #3a3a4a;
+  background: conic-gradient(
+    from 0deg,
+    transparent    0%,
+    transparent   18%,
+    var(--rim-a, transparent) 42%,
+    var(--rim-b, transparent) 58%,
+    transparent   82%,
+    transparent  100%
+  );
+  animation: rim-rotate var(--rim-speed, 8s) linear infinite;
+  opacity: var(--rim-opacity, 0);
+  filter: blur(2px);
+  z-index: -1;
 }
 
-/* ── Listening ────────────────────────────────────────────────────────────── */
+/* ── Specular glass highlight (always on top of content) ────────────────── */
+.orb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 34% 28%, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.04) 38%, transparent 62%),
+    radial-gradient(ellipse at 72% 76%, rgba(0,0,0,0.28) 0%, transparent 48%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STATE: IDLE  —  Deep navy, slow breathing, dormant star core
+   ══════════════════════════════════════════════════════════════════════════ */
+.orb--idle {
+  --rim-a: #3050a0;
+  --rim-b: #2040a0;
+  --rim-speed: 7s;
+  --rim-opacity: 0.32;
+  background: radial-gradient(circle at 42% 36%, #121a32 0%, #07091a 52%, #040610 100%);
+  box-shadow:
+    0 0 0 1px #1b2348,
+    0 0 14px 3px rgba(38, 58, 140, 0.18),
+    inset 0 1px 0 rgba(255,255,255,0.045),
+    inset 0 0 22px rgba(0,0,0,0.65);
+  animation: idle-breathe 4.5s ease-in-out infinite;
+}
+
+/* Crystalline dormant core */
+.orb-core {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, #90a8e8, #4060b0 55%, #1e2e70);
+  box-shadow:
+    0 0 0 1.5px rgba(80, 110, 220, 0.28),
+    0 0 10px 4px rgba(55, 88, 200, 0.38);
+  animation: core-pulse 4.5s ease-in-out infinite;
+  z-index: 2;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STATE: LISTENING  —  Violet-ultraviolet plasma ignition
+   ══════════════════════════════════════════════════════════════════════════ */
 .orb--listening {
-  background: #100d28;
-  border: 1.5px solid #534ab7;
-  animation: pulse-ring 2s ease-in-out infinite;
-  box-shadow: 0 0 0 0 rgba(127, 119, 221, 0);
+  --rim-a: #9060ff;
+  --rim-b: #50a8ff;
+  --rim-speed: 1.55s;
+  --rim-opacity: 1;
+  background: radial-gradient(circle at 42% 36%, #160b34 0%, #08041e 52%, #040210 100%);
+  box-shadow:
+    0 0 0 1px rgba(112, 72, 255, 0.7),
+    0 0 14px 5px rgba(105, 62, 245, 0.42),
+    0 0 32px 12px rgba(72, 32, 210, 0.22),
+    0 0 56px 20px rgba(48, 14, 160, 0.08),
+    inset 0 0 20px rgba(88, 44, 215, 0.28),
+    inset 0 1px 0 rgba(170, 130, 255, 0.1);
+  animation: listening-pulse 1.9s ease-in-out infinite;
 }
 
-.orb--listening .waveform {
+.waveform {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 3px;
   height: 28px;
+  padding-bottom: 1px;
+  z-index: 2;
 }
 
-.orb--listening .waveform .bar {
+.bar {
   width: 3px;
-  background: #7f77dd;
-  border-radius: 2px;
-  animation: wave 1.2s ease-in-out infinite;
+  border-radius: 3px 3px 1px 1px;
+  background: linear-gradient(to top, rgba(104, 68, 250, 0.55), #b8a0ff);
+  box-shadow: 0 0 6px rgba(148, 108, 255, 0.75);
+  transform-origin: bottom center;
+  animation: bar-dance 1.05s ease-in-out infinite;
 }
+.bar:nth-child(1) { height: 7px;  animation-delay: 0.00s; }
+.bar:nth-child(2) { height: 17px; animation-delay: 0.20s; }
+.bar:nth-child(3) { height: 26px; animation-delay: 0.07s; }
+.bar:nth-child(4) { height: 17px; animation-delay: 0.28s; }
+.bar:nth-child(5) { height: 7px;  animation-delay: 0.14s; }
 
-.orb--listening .waveform .bar:nth-child(1) { animation-delay: 0.00s; }
-.orb--listening .waveform .bar:nth-child(2) { animation-delay: 0.10s; }
-.orb--listening .waveform .bar:nth-child(3) { animation-delay: 0.20s; }
-.orb--listening .waveform .bar:nth-child(4) { animation-delay: 0.30s; }
-.orb--listening .waveform .bar:nth-child(5) { animation-delay: 0.20s; }
-.orb--listening .waveform .bar:nth-child(6) { animation-delay: 0.10s; }
-.orb--listening .waveform .bar:nth-child(7) { animation-delay: 0.00s; }
-
-/* ── Transcribing ─────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   STATE: TRANSCRIBING  —  Amber oracle, counter-spinning rings
+   ══════════════════════════════════════════════════════════════════════════ */
 .orb--transcribing {
-  background: #0b1c18;
-  border: 1.5px solid #1d9e75;
+  --rim-a: #f5a020;
+  --rim-b: #ffcc55;
+  --rim-speed: 0.82s;
+  --rim-opacity: 0.92;
+  background: radial-gradient(circle at 42% 36%, #1e1200 0%, #0e0800 52%, #060400 100%);
+  box-shadow:
+    0 0 0 1px rgba(210, 134, 14, 0.55),
+    0 0 14px 5px rgba(210, 125, 5, 0.3),
+    0 0 32px 12px rgba(155, 80, 0, 0.14),
+    inset 0 0 18px rgba(170, 95, 0, 0.2),
+    inset 0 1px 0 rgba(255, 190, 65, 0.07);
 }
 
-.orb--transcribing .spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #1d9e75;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.75s linear infinite;
-}
-
-/* ── Injected ─────────────────────────────────────────────────────────────── */
-.orb--injected {
-  background: #0a1810;
-  border: 1.5px solid #639922;
-}
-
-.orb--injected .orb-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #639922;
-  box-shadow: 0 0 8px rgba(99, 153, 34, 0.5);
-}
-
-/* ── Muted ────────────────────────────────────────────────────────────────── */
-.orb--muted {
-  background: #1a0f0f;
-  border: 1.5px solid #3d2020;
-}
-
-.orb--muted .mute-icon {
+.scanner {
+  width: 26px;
+  height: 26px;
   position: relative;
-  width: 20px;
-  height: 20px;
+  z-index: 2;
 }
 
-.orb--muted .mute-icon::before,
-.orb--muted .mute-icon::after {
-  content: "";
+.scanner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  border-top-color: #f5a020;
+  border-right-color: rgba(245, 160, 32, 0.38);
+  animation: scan-spin 0.70s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(248, 164, 28, 0.9));
+}
+
+.scanner::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  border-bottom-color: rgba(245, 160, 32, 0.68);
+  border-left-color: rgba(245, 160, 32, 0.22);
+  animation: scan-spin 1.12s linear infinite reverse;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STATE: INJECTED  —  Crystalline emerald success burst
+   ══════════════════════════════════════════════════════════════════════════ */
+.orb--injected {
+  --rim-a: #00e87a;
+  --rim-b: #00cc88;
+  --rim-speed: 3.5s;
+  --rim-opacity: 0.62;
+  background: radial-gradient(circle at 42% 36%, #002e18 0%, #001208 52%, #000905 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 200, 96, 0.52),
+    0 0 14px 5px rgba(0, 205, 95, 0.24),
+    0 0 34px 12px rgba(0, 155, 65, 0.1),
+    inset 0 0 18px rgba(0, 155, 65, 0.18),
+    inset 0 1px 0 rgba(0, 255, 135, 0.065);
+  animation: inject-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.checkmark {
+  width: 21px;
+  height: 17px;
+  z-index: 2;
+  filter: drop-shadow(0 0 5px rgba(0, 235, 125, 0.85));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STATE: MUTED  —  Cold crimson lockdown, frozen
+   ══════════════════════════════════════════════════════════════════════════ */
+.orb--muted {
+  --rim-a: #cc1535;
+  --rim-b: #aa0e25;
+  --rim-speed: 9s;
+  --rim-opacity: 0.22;
+  background: radial-gradient(circle at 42% 36%, #1c0408 0%, #0b0204 52%, #060102 100%);
+  box-shadow:
+    0 0 0 1px rgba(155, 14, 38, 0.42),
+    0 0 10px 2px rgba(150, 14, 38, 0.14),
+    inset 0 0 22px rgba(0,0,0,0.72),
+    inset 0 1px 0 rgba(210, 30, 55, 0.055);
+}
+
+.mute-icon {
+  width: 18px;
+  height: 18px;
+  position: relative;
+  opacity: 0.72;
+  z-index: 2;
+}
+
+.mute-icon::before,
+.mute-icon::after {
+  content: '';
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 2px;
+  width: 1.5px;
   height: 18px;
-  background: #993c1d;
+  background: linear-gradient(to bottom, #ff3458, #c01030);
   border-radius: 2px;
+  box-shadow: 0 0 6px rgba(210, 22, 52, 0.65);
 }
 
-.orb--muted .mute-icon::before {
-  transform: translate(-50%, -50%) rotate(45deg);
-}
+.mute-icon::before { transform: translate(-50%, -50%) rotate(45deg); }
+.mute-icon::after  { transform: translate(-50%, -50%) rotate(-45deg); }
 
-.orb--muted .mute-icon::after {
-  transform: translate(-50%, -50%) rotate(-45deg);
-}
-
-/* ── Expanded clipboard card ──────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   CLIPBOARD CARD  —  Holographic frosted panel
+   ══════════════════════════════════════════════════════════════════════════ */
 .orb-card {
-  background: #111118;
-  border: 1px solid #252530;
-  border-radius: 14px;
-  padding: 12px 14px;
-  width: 260px;
-  animation: card-in 0.2s ease both;
+  width: 268px;
+  background:
+    linear-gradient(158deg, rgba(0, 230, 120, 0.05) 0%, transparent 38%),
+    rgba(8, 9, 18, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-top-color: rgba(0, 215, 108, 0.22);
+  border-radius: 18px;
+  padding: 13px 15px;
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(0, 225, 115, 0.085);
+  animation: card-rise 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.card-state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 35%, #00ff90, #00aa55);
+  box-shadow: 0 0 6px rgba(0, 220, 105, 0.65);
+  flex-shrink: 0;
 }
 
 .orb-card-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 9px;
 }
 
 .orb-card-label {
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 500;
-  color: #7a7a90;
-  letter-spacing: 0.04em;
+  color: rgba(0, 198, 100, 0.6);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .orb-card-text {
   font-size: 12px;
-  color: #d0d0e0;
-  line-height: 1.55;
+  color: rgba(218, 228, 222, 0.82);
+  line-height: 1.62;
   font-style: italic;
-  margin-bottom: 10px;
+  font-weight: 300;
+  margin-bottom: 11px;
   max-height: 80px;
   overflow-y: auto;
   word-break: break-word;
 }
 
+.orb-card-text::-webkit-scrollbar         { width: 3px; }
+.orb-card-text::-webkit-scrollbar-track   { background: transparent; }
+.orb-card-text::-webkit-scrollbar-thumb   { background: rgba(0,195,100,0.22); border-radius: 2px; }
+
 .orb-card-actions {
   display: flex;
-  gap: 6px;
+  gap: 5px;
 }
 
 .card-btn {
-  font-size: 10px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid #2a2a38;
-  background: #1a1a26;
-  color: #7a7a90;
+  font-size: 9.5px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  background: rgba(255, 255, 255, 0.038);
+  color: rgba(175, 185, 195, 0.62);
   cursor: pointer;
   font-family: inherit;
-  letter-spacing: 0.03em;
-  transition: all 0.15s;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  transition: background 0.14s, border-color 0.14s, color 0.14s;
 }
 
 .card-btn:hover {
-  color: #d0d0e0;
-  border-color: #3a3a50;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.13);
+  color: rgba(218, 228, 235, 0.9);
 }
 
+.card-btn:active { transform: scale(0.96); }
+
 .card-btn--primary {
-  background: #1a1640;
-  border-color: #534ab7;
-  color: #afa9ec;
+  background: rgba(0, 195, 90, 0.12);
+  border-color: rgba(0, 195, 90, 0.32);
+  color: rgba(0, 215, 105, 0.85);
 }
 
 .card-btn--primary:hover {
-  background: #221e52;
+  background: rgba(0, 195, 90, 0.2);
+  border-color: rgba(0, 215, 105, 0.52);
+  color: rgba(0, 240, 125, 1);
 }
 
-/* ── Keyframe animations ──────────────────────────────────────────────────── */
-@keyframes pulse-ring {
-  0%,
-  100% { box-shadow: 0 0 0 0 rgba(127, 119, 221, 0); }
-  50%  { box-shadow: 0 0 0 8px rgba(127, 119, 221, 0.12); }
-}
+/* ══════════════════════════════════════════════════════════════════════════
+   KEYFRAMES
+   ══════════════════════════════════════════════════════════════════════════ */
 
-@keyframes spin {
+@keyframes rim-rotate {
   to { transform: rotate(360deg); }
 }
 
-@keyframes wave {
-  0%,
-  100% { height: 5px; }
-  50%  { height: 22px; }
+@keyframes idle-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px #1b2348,
+      0 0 10px 2px rgba(38, 58, 140, 0.12),
+      inset 0 1px 0 rgba(255,255,255,0.04),
+      inset 0 0 22px rgba(0,0,0,0.65);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px #263464,
+      0 0 20px 6px rgba(42, 66, 165, 0.24),
+      inset 0 1px 0 rgba(255,255,255,0.065),
+      inset 0 0 22px rgba(0,0,0,0.65);
+  }
 }
 
-@keyframes card-in {
-  from { opacity: 0; transform: translateY(-6px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes core-pulse {
+  0%, 100% { opacity: 0.42; transform: scale(0.88); }
+  50%       { opacity: 1;    transform: scale(1.1);  }
 }
+
+@keyframes listening-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(112, 72, 255, 0.7),
+      0 0 14px 5px rgba(105, 62, 245, 0.42),
+      0 0 32px 12px rgba(72, 32, 210, 0.22),
+      0 0 56px 20px rgba(48, 14, 160, 0.08),
+      inset 0 0 20px rgba(88, 44, 215, 0.28),
+      inset 0 1px 0 rgba(170, 130, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(130, 90, 255, 0.88),
+      0 0 18px 8px rgba(118, 78, 252, 0.52),
+      0 0 40px 16px rgba(82, 42, 224, 0.28),
+      0 0 68px 26px rgba(56, 18, 178, 0.1),
+      inset 0 0 25px rgba(98, 52, 228, 0.34),
+      inset 0 1px 0 rgba(185, 150, 255, 0.14);
+  }
+}
+
+@keyframes bar-dance {
+  0%, 100% { transform: scaleY(1);    }
+  50%       { transform: scaleY(0.16); }
+}
+
+@keyframes scan-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes inject-pop {
+  0% {
+    transform: scale(0.86);
+    box-shadow:
+      0 0 0 1px rgba(0, 255, 148, 0.92),
+      0 0 36px 16px rgba(0, 255, 130, 0.52),
+      inset 0 0 28px rgba(0, 230, 108, 0.38);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 1px rgba(0, 200, 96, 0.52),
+      0 0 14px 5px rgba(0, 205, 95, 0.24),
+      0 0 34px 12px rgba(0, 155, 65, 0.1),
+      inset 0 0 18px rgba(0, 155, 65, 0.18),
+      inset 0 1px 0 rgba(0, 255, 135, 0.065);
+  }
+}
+
+@keyframes card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
