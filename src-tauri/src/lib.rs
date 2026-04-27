@@ -115,7 +115,21 @@ pub fn run() {
                 }
             }
 
-            // ── 7. Make the orb non-activating on Windows ─────────────────
+            // ── 7. Linux session type detection ───────────────────────────
+            #[cfg(target_os = "linux")]
+            {
+                let on_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
+                let on_x11     = std::env::var("DISPLAY").is_ok();
+                if on_wayland {
+                    log::info!("Linux: Wayland session detected — injection via ydotool (requires ydotoold running)");
+                } else if on_x11 {
+                    log::info!("Linux: X11 session detected — injection via xdotool");
+                } else {
+                    log::warn!("Linux: no DISPLAY or WAYLAND_DISPLAY — injection will fall back to clipboard");
+                }
+            }
+
+            // ── 8. Make the orb non-activating on Windows ─────────────────
             #[cfg(target_os = "windows")]
             if let Some(win) = app.get_webview_window("orb") {
                 use windows::Win32::UI::WindowsAndMessaging::{

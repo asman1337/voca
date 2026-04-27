@@ -150,11 +150,54 @@ fn inject_macos(_text: &str) -> Result<(), String> {
     Err("macOS text injection not yet implemented".into())
 }
 
-// ── Linux stub (t-p2-06) ─────────────────────────────────────────────────────
+// ── Linux — xdotool (X11) / ydotool (Wayland) ────────────────────────────────
+//
+// Strategy:
+//   1. Detect session type from WAYLAND_DISPLAY / DISPLAY env vars.
+//   2. X11  → `xdotool type --clearmodifiers --delay 0 -- <text>`
+//   3. Wayland → `ydotool type --delay 0 -- <text>`  (requires ydotool daemon)
+//   4. Either binary missing → Err (pipeline falls through to clipboard).
+//
+// `--clearmodifiers` resets held modifier keys (Shift, Ctrl, etc.) before
+// typing so the output is not garbled if the user was holding a key.
+// `--delay 0` avoids a 12ms per-character delay that xdotool defaults to.
+// `--` separates flags from the text argument (handles text starting with `-`).
 
 #[cfg(target_os = "linux")]
-fn inject_linux(_text: &str) -> Result<(), String> {
-    // TODO (t-p2-06): shell out to `xdotool type --clearmodifiers`
-    Err("Linux text injection not yet implemented".into())
+fn inject_linux(text: &str) -> Result<(), String> {
+    use std::process::Command;
+
+    let on_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
+    let on_x11     = std::env::var("DISPLAY").is_ok();
+
+    if on_wayland {
+        // ydotool works on Wayland — requires `ydotoold` daemon running.
+        let status = Command::new("ydotool")
+            .args(["type", "--delay", "0", "--", text])
+            .status()
+            .map_err(|e| format!("ydotool not found or failed to launch: {e}"))?;
+
+        if status.success() {
+            log::info!("inject: ydotool OK ({} chars)", text.chars().count());
+            Ok(())
+        } else {
+            Err(format!("ydotool exited with status {status}"))
+        }
+    } else if on_x11 {
+        // xdotool — available on most X11 distros via the package manager.
+        let status = Command::new("xdotool")
+            .args(["type", "--clearmodifiers", "--delay", "0", "--", text])
+            .status()
+            .map_err(|e| format!("xdotool not found: {e}. Install with: sudo apt install xdotool"))?;
+
+        if status.success() {
+            log::info!("inject: xdotool OK ({} chars)", text.chars().count());
+            Ok(())
+        } else {
+            Err(format!("xdotool exited with status {status}"))
+        }
+    } else {
+        Err("No X11 (DISPLAY) or Wayland (WAYLAND_DISPLAY) session detected".into())
+    }
 }
 
