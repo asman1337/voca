@@ -20,12 +20,16 @@ jobs:
         include:
           - platform: macos-latest
             args: '--target aarch64-apple-darwin'
+            macos_target: '11.0'
           - platform: macos-latest
             args: '--target x86_64-apple-darwin'
+            macos_target: '10.15'
           - platform: ubuntu-22.04
             args: ''
+            macos_target: ''
           - platform: windows-latest
             args: ''
+            macos_target: ''
 
     runs-on: ${{ matrix.platform }}
 
@@ -104,6 +108,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_target }}
           # macOS signing vars are set via $GITHUB_ENV in "Set macOS signing env"
           # only when APPLE_CERTIFICATE secret is configured. When absent, tauri
           # skips codesign and produces an unsigned .dmg.
