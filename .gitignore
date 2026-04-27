@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+
+# Tauri build artifacts
+src-tauri/target/
+src-tauri/gen/
+
+# Whisper models (large binary files — download via scripts/download_model)
+models/*.bin
+models/*.gguf
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+*.swp
+*.swo
+
+# Env
+.env
+.env.local
+
+# Misc
+docs/
+*.bak
+*.tmp

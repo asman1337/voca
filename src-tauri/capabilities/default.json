@@ -1,0 +1,14 @@
+{
+  "identifier": "com.b3mlabs.voca.default",
+  "description": "Default capability — grants the orb window access to core Tauri APIs.",
+  "windows": ["orb"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-set-size",
+    "core:event:allow-listen",
+    "core:event:allow-emit",
+    "shell:allow-open"
+  ]
+}
